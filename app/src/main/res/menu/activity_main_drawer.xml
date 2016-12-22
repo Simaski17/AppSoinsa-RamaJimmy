@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <group android:checkableBehavior="single">
+        <item
+            android:id="@+id/nav_borradores"
+            android:icon="@drawable/ic_action_newcheck"
+            android:title="Mis PreObras" />
+        <item
+            android:id="@+id/nav_inspecciones"
+            android:icon="@drawable/ic_action_newcheck"
+            android:title="Mis Gestiones" />
+        <item
+            android:id="@+id/nav_todos"
+            android:icon="@drawable/ic_action_newcheck"
+            android:title="Agenda" />
+
+    </group>
+
+    <item android:title="Extras">
+        <menu>
+            <item
+                android:id="@+id/nav_simbol"
+                android:icon="@drawable/ic_action_newcheck"
+                android:title="Ver simbología" />
+            <item
+                android:id="@+id/nav_tutos"
+                android:icon="@drawable/ic_action_newcheck"
+                android:title="Tutorial de uso" />
+        </menu>
+    </item>
+
+</menu>
