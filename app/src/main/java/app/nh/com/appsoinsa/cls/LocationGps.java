@@ -32,7 +32,7 @@ public class LocationGps implements LocationListener {
         String lon = loc.getLongitude()+"";
         String msg = "Mi ubicacion actual es: " + "\n Lat = "	+ loc.getLatitude() + "\n Long = " + loc.getLongitude();
         //Toast.makeText(this.ctx, loc.getLatitude()+"" , Toast.LENGTH_SHORT ).show();
-        Log.d("appGPS",msg);
+        //Log.d("appGPS",msg);
 
         a.listenGps(lat,lon);
         //flash.asignaLyl(msg);

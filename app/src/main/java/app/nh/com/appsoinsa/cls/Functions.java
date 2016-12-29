@@ -52,7 +52,7 @@ public class Functions {
 
     public static String datenow(){
 
-        SimpleDateFormat sm2 = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss");
+        SimpleDateFormat sm2 = new SimpleDateFormat("yyyy/dd/MM HH:mm:ss");
         Date d2 = new Date();
         String f = sm2.format(d2);
         return f;

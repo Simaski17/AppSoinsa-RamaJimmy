@@ -53,10 +53,18 @@ public class AdapterItems extends RecyclerView.Adapter<AdapterItems.ItemViewHold
 
     @Override
     public void onBindViewHolder(ItemViewHolder holder, final int position) {
-
-        holder.desc1.setText("#"+items.get(position).getIdApp());
-        holder.desc2.setText(items.get(position).getAlias() + " - " + items.get(position).getFechaCreacion());
-        holder.fecha.setText("");
+        /*if(items.get(position).getIdPreObra() != null){
+            holder.desc1.setText("#" + items.get(position).getIdApp());
+            holder.desc2.setText(items.get(position).getAlias() + " - " + items.get(position).getFechaCreacion());
+            holder.fecha.setText("");
+            holder.desc1.setTextColor(Color.parseColor("#bdbdbd"));
+            holder.desc2.setTextColor(Color.parseColor("#bdbdbd"));
+            holder.fecha.setTextColor(Color.parseColor("#bdbdbd"));
+        }else {*/
+            holder.desc1.setText("#" + items.get(position).getIdApp());
+            holder.desc2.setText(items.get(position).getAlias() + " - " + items.get(position).getFechaCreacion());
+            holder.fecha.setText("");
+       // }
 
 
         //holder.img.setImageURI(Uri.parse(items.get(position).getUrl()));

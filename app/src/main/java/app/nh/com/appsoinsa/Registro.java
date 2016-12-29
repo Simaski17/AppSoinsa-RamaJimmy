@@ -14,6 +14,8 @@ import android.location.Geocoder;
 import android.location.LocationListener;
 import android.location.LocationManager;
 import android.media.MediaScannerConnection;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.net.Uri;
 import android.os.Environment;
 import android.os.Handler;
@@ -22,17 +24,27 @@ import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewTreeObserver;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
+import android.widget.CompoundButton;
 import android.widget.EditText;
+import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.RelativeLayout;
 import android.widget.ScrollView;
+import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.google.android.gms.common.GooglePlayServicesNotAvailableException;
+import com.google.android.gms.common.GooglePlayServicesRepairableException;
+import com.google.android.gms.common.api.Status;
+import com.google.android.gms.location.places.Place;
+import com.google.android.gms.location.places.ui.PlaceAutocomplete;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.MapFragment;
@@ -43,7 +55,6 @@ import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-
 import org.json.JSONObject;
 
 import java.io.ByteArrayOutputStream;
@@ -66,14 +77,17 @@ import app.nh.com.appsoinsa.cls.OutObject;
 import app.nh.com.appsoinsa.cls.Preobra;
 
 
-public class Registro extends AppCompatActivity implements OnMapReadyCallback {
+public class Registro extends AppCompatActivity implements OnMapReadyCallback, GoogleMap.OnMarkerDragListener {
     TextView idApp, txtGps;
     String idRegistro = "";
     EditText txtDirecc, txtDesc, txtAlias;
     LinearLayout btnEnviar;
     Button btnPhoto;
-    Button btnPosicion;
+    ImageButton btnPosicion;
+    ImageButton btnBuscar;
     LatLng pos;
+    RelativeLayout rlImgExtra;
+    ImageView imgExtra;
 
     byte[] inputData;
     String pathFile;
@@ -83,6 +97,7 @@ public class Registro extends AppCompatActivity implements OnMapReadyCallback {
     public String direccion;
 
     public static GoogleMap mapa;
+    public static Switch swActivarMapa;
 
 
 
@@ -114,6 +129,10 @@ public class Registro extends AppCompatActivity implements OnMapReadyCallback {
         setContentView(R.layout.activity_registro);
         idRegistro = "";
 
+        /*<meta-data
+        android:name="com.google.android.geo.API_KEY"
+        android:value="AIzaSyDC2Mj4Wi2OnXBVwsL8dneURatHCmoNgiE"/>*/
+
         idApp = (TextView) findViewById(R.id.idAppRegister);
         txtGps = (TextView) findViewById(R.id.txtGps);
         txtAlias = (EditText) findViewById(R.id.txtAlias);
@@ -121,9 +140,12 @@ public class Registro extends AppCompatActivity implements OnMapReadyCallback {
         txtDirecc = (EditText) findViewById(R.id.txtDirecc);
         btnEnviar = (LinearLayout) findViewById(R.id.btnEnviar);
         btnPhoto = (Button) findViewById(R.id.btnPhoto);
-        btnPosicion = (Button) findViewById(R.id.btnPosicion);
+        btnPosicion =  (ImageButton) findViewById(R.id.btnPosicion);
+        btnBuscar = (ImageButton) findViewById(R.id.btnBuscar);
         contentImg = (LinearLayout) findViewById(R.id.contentImg);
         scrollme = (ScrollView) findViewById(R.id.scrollme);
+        rlImgExtra = (RelativeLayout) findViewById(R.id.rlImgExtra);
+        imgExtra = (ImageView) findViewById(R.id.imgExtra);
 
         //ViewTreeObserver obs = new ViewTreeObserver();
         //scrollme.getViewTreeObserver().removeOnPreDrawListener(this);
@@ -138,7 +160,7 @@ public class Registro extends AppCompatActivity implements OnMapReadyCallback {
             getValues(idRegistro);
             statusMap = false;
         }else{
-            statusMap = true;
+            statusMap = false;
         }
 
         btnPhoto.setOnClickListener(new View.OnClickListener() {
@@ -165,7 +187,7 @@ public class Registro extends AppCompatActivity implements OnMapReadyCallback {
                 p.setLatitud(latitud);
                 p.setLongitud(longitud);
                 p.setImgs(imgs);
-               // Functions.desSerialize();
+                // Functions.desSerialize();
 
                 if (idRegistro.equals("")) {
                     p.setFechaCreacion(Functions.datenow());
@@ -196,13 +218,63 @@ public class Registro extends AppCompatActivity implements OnMapReadyCallback {
         SupportMapFragment mfragment = (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map);
         mfragment.getMapAsync(this);
 
+        swActivarMapa = (Switch) findViewById(R.id.swActivarMap);
+
+        //set the switch to ON
+        swActivarMapa.setChecked(true);
+
+        swActivarMapa.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView,  boolean isChecked) {
+                if(isChecked){
+                    statusMap = true;
+                }else{
+                    statusMap = false;
+                }
+            }
+        });
+
+        rlImgExtra.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                rlImgExtra.setVisibility(View.GONE);
+            }
+        });
+
 
         btnPosicion.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+                if(longitud.equals("")){
+                    Toast.makeText(Registro.this, "Aun no ha posicionado", Toast.LENGTH_SHORT).show();
+                }else {
+                    getAddress(latitud, longitud);
+                }
+                //buscarDireccion();
+            }
+        });
 
-                //getAddress(latitud,longitud);
-                buscarDireccion();
+        btnBuscar.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+
+                if(txtDirecc.getText().toString().equals("")){
+                    Toast.makeText(Registro.this, "Ingrese una direccion para buscar", Toast.LENGTH_SHORT).show();
+                }else {
+                    buscarDireccion();
+                }
+            }
+        });
+
+        txtDirecc.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+            @Override
+            public void onFocusChange(View v, boolean hasFocus) {
+                if(conectadoRedMovil() || conectadoWifi()){
+                    if(hasFocus) {
+                        txtDesc.requestFocus();
+                        findPlace();
+                    }
+                }
             }
         });
 
@@ -236,7 +308,6 @@ public class Registro extends AppCompatActivity implements OnMapReadyCallback {
                     SplashScreen.obj.getListObject().get(i).setDireccion(po.getDireccion());
                     SplashScreen.obj.getListObject().get(i).setAlias(po.getAlias());
                     SplashScreen.obj.getListObject().get(i).getImgs().addAll(po.getImgs());
-
                 }
             }
             i++;
@@ -247,11 +318,11 @@ public class Registro extends AppCompatActivity implements OnMapReadyCallback {
     }
 
     public void addRegister(Preobra po){
-            SplashScreen.obj.getListObject().add(po);
+        SplashScreen.obj.getListObject().add(po);
             /*Actualiza el Json*/
-            Functions.desSerialize(true);
-            Toast.makeText(Registro.this,"Registro Guardado", Toast.LENGTH_LONG).show();
-            finish();
+        Functions.desSerialize(true);
+        Toast.makeText(Registro.this,"Registro Guardado", Toast.LENGTH_LONG).show();
+        finish();
     }
 
     public List<Preobra> getValues(String find){
@@ -261,12 +332,26 @@ public class Registro extends AppCompatActivity implements OnMapReadyCallback {
 
             if(a.getIdApp() != null) {
                 if (a.getIdApp().equals(find)) {
+
+                    if(a.getIdPreObra() != null){
+                        btnEnviar.setBackgroundColor(getResources().getColor(R.color.coGris));
+                        btnEnviar.setEnabled(false);
+                        btnBuscar.setEnabled(false);
+                        btnPosicion.setEnabled(false);
+                        txtAlias.setText(a.getAlias());
+                        txtAlias.setEnabled(false);
+                        txtDirecc.setText(a.getDireccion());
+                        txtDirecc.setEnabled(false);
+                        txtDesc.setText(a.getDescripcion());
+                        txtDesc.setEnabled(false);
+                    }
+
                     secondList.add(a);
                     txtAlias.setText(a.getAlias());
                     txtDirecc.setText(a.getDireccion());
                     txtDesc.setText(a.getDescripcion());
                     if(a.getLatitud().trim().equals("")){
-                        statusMap = true;
+                        statusMap = false;
                     }else {
                         statusMap = false;
                         listenGpsStatic(a.getLatitud(),a.getLongitud());
@@ -285,7 +370,6 @@ public class Registro extends AppCompatActivity implements OnMapReadyCallback {
         return secondList;
     }
 
-
     public void listenGps(String lat, String lon){
         if(statusMap) {
             this.longitud = lon;
@@ -299,16 +383,15 @@ public class Registro extends AppCompatActivity implements OnMapReadyCallback {
 
     public void listenGpsStatic(String lat, String lon){
 
-            this.longitud = lon;
-            this.latitud = lat;
-            String cadena = "v2. long:" + lon + " lat:" + lat;
-            txtGps.setText(cadena);
-            setLocationPoint(lat, lon);
-            getAddress(lat,lon);
+        this.longitud = lon;
+        this.latitud = lat;
+        String cadena = "v2. long:" + lon + " lat:" + lat;
+        txtGps.setText(cadena);
+        setLocationPoint(lat, lon);
+        getAddress(lat,lon);
     }
 
     public void getAddress(String lat, String lon){
-
 
         Double long_ = Double.parseDouble(lon);
         Double lat_ = Double.parseDouble(lat);
@@ -329,8 +412,6 @@ public class Registro extends AppCompatActivity implements OnMapReadyCallback {
             //Toast.makeText(Registro.this,"No se pudo",Toast.LENGTH_LONG).show();
         }
 
-
-
     }
 
     public void setLocationPoint(String lat, String lng){
@@ -339,58 +420,64 @@ public class Registro extends AppCompatActivity implements OnMapReadyCallback {
         Double lat_ = Double.parseDouble(lat);
 
         pos = new LatLng(lat_,long_);
-        mapa.clear();
+        //mapa.setOnMarkerDragListener(this);
+        Log.e("TAG", "POS: "+pos);
 
-        mapa.addMarker(new MarkerOptions()
-                .position(pos)
-                .title("Punto GPS")
-                .draggable(true));
-        statusMap = false;
+        try {
+            mapa.setOnMarkerDragListener(this);
+            mapa.clear();
 
-        mapa.moveCamera(CameraUpdateFactory.newLatLng(pos));
+            mapa.addMarker(new MarkerOptions()
+                    .position(pos)
+                    .title("Punto GPS")
+                    .draggable(true));
 
-        mapa.setOnMapClickListener(new GoogleMap.OnMapClickListener() {
+            mapa.moveCamera(CameraUpdateFactory.newLatLng(pos));
 
-            @Override
-            public void onMapClick(LatLng latLng) {
+            mapa.setOnMapClickListener(new GoogleMap.OnMapClickListener() {
 
-                // Creating a marker
-                MarkerOptions markerOptions = new MarkerOptions();
+                @Override
+                public void onMapClick(LatLng latLng) {
 
-                // Setting the position for the marker
-                markerOptions.position(latLng);
+                    // Creating a marker
+                    MarkerOptions markerOptions = new MarkerOptions();
 
-                // Setting the title for the marker.
-                // This will be displayed on taping the marker
-                markerOptions.title(latLng.latitude + " : " + latLng.longitude);
+                    // Setting the position for the marker
+                    markerOptions.position(latLng);
 
-                // Clears the previously touched position
-                mapa.clear();
+                    // Setting the title for the marker.
+                    // This will be displayed on taping the marker
+                    markerOptions.title(latLng.latitude + " : " + latLng.longitude);
 
-                // Animating to the touched position
-                mapa.animateCamera(CameraUpdateFactory.newLatLng(latLng));
+                    // Clears the previously touched position
+                    mapa.clear();
 
-                // Placing a marker on the touched position
-                mapa.addMarker(new MarkerOptions()
-                        .position(latLng)
-                        .title("Punto GPS")
-                        .draggable(true));
-                statusMap = false;
+                    // Animating to the touched position
+                    mapa.animateCamera(CameraUpdateFactory.newLatLng(latLng));
 
-                Toast.makeText(Registro.this, "AQUI"+  latLng.longitude + latLng.latitude, Toast.LENGTH_SHORT).show();
-                getAddress(String.valueOf(latLng.latitude),String.valueOf(latLng.longitude));
+                    // Placing a marker on the touched position
+                    mapa.addMarker(new MarkerOptions()
+                            .position(latLng)
+                            .title("Punto GPS")
+                            .draggable(true));
 
-                String cadena = "v1. long:" +latLng.longitude + " lat:" + latLng.latitude;
-                txtGps.setText(cadena);
+                    Toast.makeText(Registro.this, "AQUI"+  latLng.longitude + latLng.latitude, Toast.LENGTH_SHORT).show();
+                    latitud = String.valueOf(latLng.latitude);
+                    longitud = String.valueOf(latLng.longitude);
 
+                    getAddress(latitud, longitud);
 
-            }
-        });
+                    /*String cadena = "v1. long:" +latLng.longitude + " lat:" + latLng.latitude;
+                    txtGps.setText(cadena);*/
 
+                }
+            });
+
+        }catch (Exception e){
+            Log.e("TAG", "Mensaje: "+ e);
+        }
 
     }
-
-
 
     /*FOTOGRAFIA FOTO!GALERIA*/
     public void showOption(){
@@ -419,29 +506,15 @@ public class Registro extends AppCompatActivity implements OnMapReadyCallback {
     /*Abre camara y obtiene path de la imagen tomada*/
     public void openCamara(){
 
-        File file = new File(Environment.getExternalStorageDirectory(),MEDIA_DIRECTORY);
+        File file = new File(Environment.getExternalStorageDirectory().getAbsolutePath() + "/SourceApp/fotos/");
         file.mkdirs();
-        path_ = Environment.getExternalStorageDirectory() + File.separator+ MEDIA_DIRECTORY + File.separator;
-
+        path_ = Environment.getExternalStorageDirectory().getAbsolutePath() + "/SourceApp/fotos/";
         path_ = path_ + generateName();
         File newfile = new File(path_);
 
         Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
         intent.putExtra(MediaStore.EXTRA_OUTPUT, Uri.fromFile(newfile));
         startActivityForResult(intent, PHOTO_CODE);
-
-    }
-
-    /*Cambia imagen (InputStream) a byte[]*/
-    public byte[] getBytes(InputStream inputStream) throws IOException {
-        ByteArrayOutputStream byteBuffer = new ByteArrayOutputStream();
-        int bufferSize = 1024;
-        byte[] buffer = new byte[bufferSize];
-        int len = 0;
-        while ((len = inputStream.read(buffer)) != -1) {
-            byteBuffer.write(buffer, 0, len);
-        }
-        return byteBuffer.toByteArray();
     }
 
     /*Genera un nombre estandar, que sera asignado al archivo*/
@@ -449,6 +522,17 @@ public class Registro extends AppCompatActivity implements OnMapReadyCallback {
         Long timestamp = System.currentTimeMillis() / 1000;
         String name = "IMG_" + timestamp.toString() + ".jpg";
         return name;
+    }
+
+    public void findPlace() {
+        try {
+            Intent intent =  new PlaceAutocomplete.IntentBuilder(PlaceAutocomplete.MODE_FULLSCREEN).build(this);
+            startActivityForResult(intent, 1);
+        } catch (GooglePlayServicesRepairableException e) {
+            // TODO: Handle the error.
+        } catch (GooglePlayServicesNotAvailableException e) {
+            // TODO: Handle the error.
+        }
     }
 
     /*Resultado de camara o galeria*/
@@ -461,12 +545,36 @@ public class Registro extends AppCompatActivity implements OnMapReadyCallback {
             //Si es tomada por camara
             case PHOTO_CODE:
                 if (resultCode == RESULT_OK) {
+
+                    BitmapFactory.Options bmOptions1 = new BitmapFactory.Options();
+                    bmOptions1.inJustDecodeBounds = true;
+                    BitmapFactory.decodeFile(path_, bmOptions1);
+                    int photoW = bmOptions1.outWidth;
+                    int photoH = bmOptions1.outHeight;
+                    // Determinar cuanto escalamos la imagen
+                    int scaleFactor1 = Math.min(photoW / 400, photoH / 400);
+                    // Decodificar la imagen en un Bitmap escalado a View
+                    bmOptions1.inJustDecodeBounds = false;
+                    bmOptions1.inSampleSize = scaleFactor1;
+                    bmOptions1.inPurgeable = true;
+                    Bitmap bitmap1 = BitmapFactory.decodeFile(path_, bmOptions1);
+                    File file = new File(path_);
+                    try {
+                        file.createNewFile();
+                        FileOutputStream out = new FileOutputStream(file);
+                        // bitmap1.compress(Bitmap.CompressFormat.JPEG, 100, out);//Convertimos la imagen a JPEG
+                        bitmap1.compress(Bitmap.CompressFormat.PNG, 50, out);//Convertimos la imagen a JPEG
+                        out.flush();
+                        out.close();
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
                     Toast.makeText(Registro.this, "Cargando Imágen", Toast.LENGTH_SHORT).show();
                     MediaScannerConnection.scanFile(Registro.this, new String[]{path_}, null,
                             new MediaScannerConnection.OnScanCompletedListener() {
                                 @Override
                                 public void onScanCompleted(String path, Uri uri) {
-                                        Log.i("Path Img PHOTO CODE ", path);
+                                    Log.i("Path Img PHOTO CODE ", path);
 
                                 }
 
@@ -484,11 +592,62 @@ public class Registro extends AppCompatActivity implements OnMapReadyCallback {
 
                 if (resultCode == RESULT_OK) {
                     Toast.makeText(Registro.this, "Generando imágen", Toast.LENGTH_SHORT).show();
-                    addImgs(data.getData().getPath());
-                    Uri imgUri = data.getData();
-                    addImgLayout(imgUri);
-                    Log.i("Path Img SELECT PICTURE", data.getData().getPath());
 
+                    Uri imgUri = data.getData();
+                    Bitmap bitmap = null;
+                    try {
+
+                         bitmap = getThumbnail(imgUri);
+
+                    }catch(Exception ex){
+
+                    }
+
+                    String path_2 = Environment.getExternalStorageDirectory().getAbsolutePath() + "/SourceApp/fotos/";
+                    path_2 = path_2 + generateName();
+                    addImgs(path_2);
+                    File f = new File(path_2);
+
+
+
+
+                    try {
+                        f.createNewFile();
+                        FileOutputStream out = new FileOutputStream(f);
+                        // bitmap1.compress(Bitmap.CompressFormat.JPEG, 100, out);//Convertimos la imagen a JPEG
+                        bitmap.compress(Bitmap.CompressFormat.JPEG, 100, out);//Convertimos la imagen a JPEG
+                        out.flush();
+                        out.close();
+                        Uri uri = Uri.fromFile(f);
+                        addImgLayout(uri);
+                        Log.i("Path Img SELECT PICTURE", data.getData().getPath());
+
+
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+
+
+
+
+
+
+                }
+                break;
+            case 1:
+                if (resultCode == RESULT_OK) {
+                    // retrive the data by using getPlace() method.
+                    Place place = PlaceAutocomplete.getPlace(this, data);
+                    String direccion = (String) place.getAddress() + (String) place.getPhoneNumber();
+                    txtDirecc.setText(direccion);
+
+                } else if (resultCode == PlaceAutocomplete.RESULT_ERROR) {
+                    Status status = PlaceAutocomplete.getStatus(this, data);
+                    // TODO: Handle the error.
+                    Log.e("Tag", status.getStatusMessage());
+
+                } else if (resultCode == RESULT_CANCELED) {
+                    // The user canceled the operation.
                 }
                 break;
         }
@@ -496,13 +655,56 @@ public class Registro extends AppCompatActivity implements OnMapReadyCallback {
     }
 
 
+    public  Bitmap getThumbnail(Uri uri) throws FileNotFoundException, IOException{
+        InputStream input = this.getContentResolver().openInputStream(uri);
+
+        BitmapFactory.Options onlyBoundsOptions = new BitmapFactory.Options();
+        onlyBoundsOptions.inJustDecodeBounds = true;
+        onlyBoundsOptions.inDither=true;//optional
+        onlyBoundsOptions.inPreferredConfig=Bitmap.Config.ARGB_8888;//optional
+        BitmapFactory.decodeStream(input, null, onlyBoundsOptions);
+        input.close();
+        if ((onlyBoundsOptions.outWidth == -1) || (onlyBoundsOptions.outHeight == -1))
+            return null;
+
+        int originalSize = (onlyBoundsOptions.outHeight > onlyBoundsOptions.outWidth) ? onlyBoundsOptions.outHeight : onlyBoundsOptions.outWidth;
+
+        double ratio = (originalSize > 500) ? (originalSize / 500) : 1.0;
+
+        BitmapFactory.Options bitmapOptions = new BitmapFactory.Options();
+        bitmapOptions.inSampleSize = getPowerOfTwoForSampleRatio(ratio);
+        bitmapOptions.inDither=true;//optional
+        bitmapOptions.inPreferredConfig=Bitmap.Config.ARGB_8888;//optional
+        input = this.getContentResolver().openInputStream(uri);
+        Bitmap bitmap = BitmapFactory.decodeStream(input, null, bitmapOptions);
+        input.close();
+        return bitmap;
+    }
+
+    private static int getPowerOfTwoForSampleRatio(double ratio){
+        int k = Integer.highestOneBit((int)Math.floor(ratio));
+        if(k==0) return 1;
+        else return k;
+    }
+
+
     public void addImgLayout(Uri uri){
         ImageView imgAdd = new ImageView(this);
         imgAdd.setImageURI(uri);
+        final Uri uriFile = uri;
+
+        imgAdd.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                //Toast.makeText(Registro.this,"Path img:" + uriFile.getPath(),Toast.LENGTH_LONG).show();
+                rlImgExtra.setVisibility(View.VISIBLE);
+                imgExtra.setImageURI(Uri.parse(uriFile.getPath()));
+            }
+        });
 
         LinearLayout relativeLayout1 = new LinearLayout(this);
-        LinearLayout.LayoutParams layoutParams=new LinearLayout.LayoutParams(60,60);
-        layoutParams.setMargins(5,5,5,5);
+        LinearLayout.LayoutParams layoutParams=new LinearLayout.LayoutParams(70,70);
+        layoutParams.setMargins(7,2,7,2);
         //layoutParams.
         relativeLayout1.setBackgroundColor(Color.parseColor("#CCCCCC"));
         relativeLayout1.addView(imgAdd);
@@ -513,68 +715,126 @@ public class Registro extends AppCompatActivity implements OnMapReadyCallback {
     }
 
 
-        public void buscarDireccion() {
+    public void buscarDireccion() {
 
-           direccion = txtDirecc.getText().toString();
+        direccion = txtDirecc.getText().toString();
 
 
-            Geocoder geocoder = new Geocoder(getApplicationContext());
-            List<Address> addresses;
-            try
+        Geocoder geocoder = new Geocoder(getApplicationContext());
+        List<Address> addresses;
+        try
+        {
+            addresses = geocoder.getFromLocationName(direccion, 5);
+            if(addresses.size() > 0)
             {
-                addresses = geocoder.getFromLocationName(direccion, 5);
-                if(addresses.size() > 0)
-                {
-                    for (int a = 0; a < addresses.size(); a++) {
-                        double latitude = addresses.get(0).getLatitude();
-                        double longitude = addresses.get(0).getLongitude();
-                        System.out.println(latitude);
-                        System.out.println(longitude);
-                        Log.d(TAG, "MENSAJE " + latitude + longitude);
-                        Toast.makeText(this, "Buscando" + latitude + longitude, Toast.LENGTH_SHORT).show();
-                        //return new LatLng(latitude, longitude);
-                    }
+                for (int a = 0; a < addresses.size(); a++) {
+                    double latitudebd = addresses.get(0).getLatitude();
+                    double longitudebd = addresses.get(0).getLongitude();
+                    latitud = String.valueOf(latitudebd);
+                    longitud = String.valueOf(longitudebd);
+                    System.out.println(latitudebd);
+                    System.out.println(longitudebd);
+                    Log.d(TAG, "MENSAJE " + latitudebd + longitudebd);
+                    Toast.makeText(this, "Buscando" + latitudebd + longitudebd, Toast.LENGTH_SHORT).show();
+                    //return new LatLng(latitude, longitude);
+
+                    pos = new LatLng(latitudebd,longitudebd);
+
+                    mapa.clear();
+
+                    mapa.animateCamera(CameraUpdateFactory.newLatLng(pos));
+                    mapa.addMarker(new MarkerOptions()
+                            .position(pos)
+                            .title("Punto GPS")
+                            .draggable(true));
+
                 }
-                else
-                {
-                    //return null;
-                }
+                mapa.animateCamera(CameraUpdateFactory.newLatLng(pos));
+                getAddress(latitud,longitud);
             }
-            catch (IOException e) {
-                e.printStackTrace();
+            else
+            {
                 //return null;
             }
-
-            /*if(direccion.equals("")){
-                Toast.makeText(this, "No hay dirección para buscar", Toast.LENGTH_SHORT).show();
-            }else{
-                Toast.makeText(this, "Buscando" + direccion, Toast.LENGTH_SHORT).show();
-                Geocoder coder = new Geocoder(getApplicationContext());
-
-                try {
-                    addresses = coder.getFromLocationName(direccion, 1);
-                    Address location = addresses.get(0);
-                    int lat = (int) (location.getLatitude()*1E6);
-                    int lon = (int) (location.getLongitude()*1E6);
-                   *//* GeoPoint loc = new GeoPoint(lat,lon);
-                    controlMapa.setCenter(loc);
-                    controlMapa.setZoom(14);*//*
-
-                    //mapa.moveCamera(CameraUpdateFactory.newLatLng(pos));
-                } catch (IOException e) {
-                    Toast.makeText(this, "No se ha encontrado la dirección :", Toast.LENGTH_SHORT).show();
-                }
-            }*/
-
-            // Ocultar el teclado
-           /* InputMethodManager imm = (InputMethodManager)getSystemService(Context.INPUT_METHOD_SERVICE);
-            imm.hideSoftInputFromWindow(input.getWindowToken(), 0);*/
+        }
+        catch (IOException e) {
+            e.printStackTrace();
+            //return null;
+        }
 
     };
 
+    private boolean conectadoRedMovil() {
+
+        ConnectivityManager connectivityManager = (ConnectivityManager)  getSystemService(Context.CONNECTIVITY_SERVICE);
+
+        NetworkInfo actNetInfo = connectivityManager.getActiveNetworkInfo();
+
+        return (actNetInfo != null && actNetInfo.isConnected());
+    }
+
+    protected Boolean conectadoWifi(){
+        ConnectivityManager connectivity = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        if (connectivity != null) {
+            NetworkInfo info = connectivity.getNetworkInfo(ConnectivityManager.TYPE_WIFI);
+            if (info != null) {
+                if (info.isConnected()) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
 
 
+    @Override
+    public void onMarkerDragStart(Marker marker) {
+
+    }
+
+    @Override
+    public void onMarkerDrag(Marker marker) {
+
+    }
+
+    @Override
+    public void onMarkerDragEnd(Marker marker) {
+        latitud = String.valueOf(marker.getPosition().latitude);
+        longitud = String.valueOf(marker.getPosition().longitude);
+        getAddress(latitud,longitud);
+    }
 
 
+    @Override
+    public void onBackPressed() {
+        if (rlImgExtra.getVisibility() == View.VISIBLE) {
+            rlImgExtra.setVisibility(View.GONE);
+        } else {
+            android.support.v7.app.AlertDialog.Builder alertDialog = new android.support.v7.app.AlertDialog.Builder(this);
+            // Setting Dialog Title
+            alertDialog.setTitle("Salir del Registro");
+            // Setting Dialog Message
+            alertDialog.setMessage("\u00bfQuieres salir del Registro? Los datos que no haya guardado ser perderan");
+            // Setting Icon to Dialog
+            // alertDialog.setIcon(R.drawable.delete);
+            // On pressing Settings button
+            alertDialog.setPositiveButton("No",
+                    new DialogInterface.OnClickListener() {
+                        public void onClick(DialogInterface dialog, int which) {
+                            dialog.cancel();
+                        }
+                    });
+            // on pressing cancel button
+            alertDialog.setNegativeButton("Si",
+                    new DialogInterface.OnClickListener() {
+                        public void onClick(DialogInterface dialog, int which) {
+                            finish();
+                        }
+                    });
+            // Showing Alert Message
+            alertDialog.show();
+            //finish();
 
+        }
+    }
 }
