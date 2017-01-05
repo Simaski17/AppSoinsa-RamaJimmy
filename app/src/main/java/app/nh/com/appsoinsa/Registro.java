@@ -818,9 +818,12 @@ public class Registro extends AppCompatActivity implements OnMapReadyCallback, G
 
     @Override
     public void onBackPressed() {
+
         if (rlImgExtra.getVisibility() == View.VISIBLE) {
             rlImgExtra.setVisibility(View.GONE);
-        } else {
+        } else if(!btnEnviar.isEnabled()){
+            finish();
+        }else {
             android.support.v7.app.AlertDialog.Builder alertDialog = new android.support.v7.app.AlertDialog.Builder(this);
             // Setting Dialog Title
             alertDialog.setTitle("Salir del Registro");
