@@ -20,6 +20,7 @@ import android.net.Uri;
 import android.os.Environment;
 import android.os.Handler;
 import android.provider.MediaStore;
+import android.provider.Settings;
 import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -120,6 +121,8 @@ public class Registro extends AppCompatActivity implements OnMapReadyCallback, G
     Geocoder geocoder;
     List<Address> addresses;
 
+    LocationManager mlocManager;
+
     String TAG = "HOLA";
 
 
@@ -128,6 +131,7 @@ public class Registro extends AppCompatActivity implements OnMapReadyCallback, G
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_registro);
         idRegistro = "";
+
 
         /*<meta-data
         android:name="com.google.android.geo.API_KEY"
@@ -151,6 +155,23 @@ public class Registro extends AppCompatActivity implements OnMapReadyCallback, G
         //scrollme.getViewTreeObserver().removeOnPreDrawListener(this);
         scrollme.setScrollY(500);
 
+         /*GPS*/
+        mlocManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+        //MyLocationListener mlocListener = new MyLocationListener(this);
+        LocationGps gps = new LocationGps(this);
+        verifcarConexion();
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            //Requiere permisos para Android 6.0
+            Log.e("Location", "No se tienen permisos necesarios!, se requieren.");
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION}, 225);
+            return;
+        }else{
+            Log.i("Location", "Permisos necesarios OK!.");
+            mlocManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, (LocationListener) gps);
+        }
+
+
+
         Intent intent = getIntent();
         Bundle extras = intent.getExtras();
 
@@ -158,9 +179,6 @@ public class Registro extends AppCompatActivity implements OnMapReadyCallback, G
             idRegistro = (String) extras.get("idAppRegister");
             idApp.setText(idRegistro);
             getValues(idRegistro);
-            statusMap = false;
-        }else{
-            statusMap = false;
         }
 
         btnPhoto.setOnClickListener(new View.OnClickListener() {
@@ -201,32 +219,19 @@ public class Registro extends AppCompatActivity implements OnMapReadyCallback, G
             }
         });
 
-         /*GPS*/
-        LocationManager mlocManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
-        //MyLocationListener mlocListener = new MyLocationListener(this);
-        LocationGps gps = new LocationGps(this);
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            //Requiere permisos para Android 6.0
-            Log.e("Location", "No se tienen permisos necesarios!, se requieren.");
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION}, 225);
-            return;
-        }else{
-            Log.i("Location", "Permisos necesarios OK!.");
-            mlocManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, (LocationListener) gps);
-        }
-
         SupportMapFragment mfragment = (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map);
         mfragment.getMapAsync(this);
 
         swActivarMapa = (Switch) findViewById(R.id.swActivarMap);
 
         //set the switch to ON
-        swActivarMapa.setChecked(true);
+        swActivarMapa.setChecked(false);
 
         swActivarMapa.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton buttonView,  boolean isChecked) {
                 if(isChecked){
+                   // verifcarConexion();
                     statusMap = true;
                 }else{
                     statusMap = false;
@@ -279,6 +284,7 @@ public class Registro extends AppCompatActivity implements OnMapReadyCallback, G
         });
 
 
+
     }
 
     @Override
@@ -287,6 +293,46 @@ public class Registro extends AppCompatActivity implements OnMapReadyCallback, G
 
         LatLng santiago = new LatLng(-33.400601, -70.651336);
         mapa.moveCamera(CameraUpdateFactory.newLatLngZoom(santiago,15));
+
+
+            mapa.setOnMapClickListener(new GoogleMap.OnMapClickListener() {
+
+                @Override
+                public void onMapClick(LatLng latLng) {
+
+                    // Creating a marker
+                    MarkerOptions markerOptions = new MarkerOptions();
+
+                    // Setting the position for the marker
+                    markerOptions.position(latLng);
+
+                    // Setting the title for the marker.
+                    // This will be displayed on taping the marker
+                    markerOptions.title(latLng.latitude + " : " + latLng.longitude);
+
+                    // Clears the previously touched position
+                    mapa.clear();
+
+                    // Animating to the touched position
+                    mapa.animateCamera(CameraUpdateFactory.newLatLng(latLng));
+
+                    // Placing a marker on the touched position
+                    mapa.addMarker(new MarkerOptions()
+                            .position(latLng)
+                            .title("Punto GPS")
+                            .draggable(true));
+
+                    Toast.makeText(Registro.this, "AQUI" + latLng.longitude + latLng.latitude, Toast.LENGTH_SHORT).show();
+                    latitud = String.valueOf(latLng.latitude);
+                    longitud = String.valueOf(latLng.longitude);
+
+                    getAddress(latitud, longitud);
+
+                }
+            });
+
+            mapa.setOnMarkerDragListener(this);
+
     }
 
 
@@ -333,7 +379,7 @@ public class Registro extends AppCompatActivity implements OnMapReadyCallback, G
             if(a.getIdApp() != null) {
                 if (a.getIdApp().equals(find)) {
 
-                    if(a.getIdPreObra() != null){
+                    if(!a.getIdPreObra().equals("")){
                         btnEnviar.setBackgroundColor(getResources().getColor(R.color.coGris));
                         btnEnviar.setEnabled(false);
                         btnBuscar.setEnabled(false);
@@ -351,7 +397,7 @@ public class Registro extends AppCompatActivity implements OnMapReadyCallback, G
                     txtDirecc.setText(a.getDireccion());
                     txtDesc.setText(a.getDescripcion());
                     if(a.getLatitud().trim().equals("")){
-                        statusMap = false;
+                        statusMap = true;
                     }else {
                         statusMap = false;
                         listenGpsStatic(a.getLatitud(),a.getLongitud());
@@ -424,7 +470,7 @@ public class Registro extends AppCompatActivity implements OnMapReadyCallback, G
         Log.e("TAG", "POS: "+pos);
 
         try {
-            mapa.setOnMarkerDragListener(this);
+
             mapa.clear();
 
             mapa.addMarker(new MarkerOptions()
@@ -434,50 +480,15 @@ public class Registro extends AppCompatActivity implements OnMapReadyCallback, G
 
             mapa.moveCamera(CameraUpdateFactory.newLatLng(pos));
 
-            mapa.setOnMapClickListener(new GoogleMap.OnMapClickListener() {
 
-                @Override
-                public void onMapClick(LatLng latLng) {
-
-                    // Creating a marker
-                    MarkerOptions markerOptions = new MarkerOptions();
-
-                    // Setting the position for the marker
-                    markerOptions.position(latLng);
-
-                    // Setting the title for the marker.
-                    // This will be displayed on taping the marker
-                    markerOptions.title(latLng.latitude + " : " + latLng.longitude);
-
-                    // Clears the previously touched position
-                    mapa.clear();
-
-                    // Animating to the touched position
-                    mapa.animateCamera(CameraUpdateFactory.newLatLng(latLng));
-
-                    // Placing a marker on the touched position
-                    mapa.addMarker(new MarkerOptions()
-                            .position(latLng)
-                            .title("Punto GPS")
-                            .draggable(true));
-
-                    Toast.makeText(Registro.this, "AQUI"+  latLng.longitude + latLng.latitude, Toast.LENGTH_SHORT).show();
-                    latitud = String.valueOf(latLng.latitude);
-                    longitud = String.valueOf(latLng.longitude);
-
-                    getAddress(latitud, longitud);
-
-                    /*String cadena = "v1. long:" +latLng.longitude + " lat:" + latLng.latitude;
-                    txtGps.setText(cadena);*/
-
-                }
-            });
 
         }catch (Exception e){
             Log.e("TAG", "Mensaje: "+ e);
         }
 
     }
+
+
 
     /*FOTOGRAFIA FOTO!GALERIA*/
     public void showOption(){
@@ -837,4 +848,39 @@ public class Registro extends AppCompatActivity implements OnMapReadyCallback, G
 
         }
     }
+
+    public void verifcarConexion(){
+        if (!mlocManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
+            showSettingsAlert();
+        }
+    }
+
+    public void showSettingsAlert() {
+        AlertDialog.Builder alertDialog = new AlertDialog.Builder(this);
+        // Setting Dialog Title
+        alertDialog.setTitle("Configuración GPS");
+        // Setting Dialog Message
+        alertDialog.setMessage("GPS no está activado. ¿Quieres ir al menú de configuración?");
+        // Setting Icon to Dialog
+        // alertDialog.setIcon(R.drawable.delete);
+        // On pressing Settings button
+        alertDialog.setPositiveButton("Configuración",
+                new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int which) {
+                        Intent intent = new Intent(  Settings.ACTION_LOCATION_SOURCE_SETTINGS);
+                        startActivity(intent);
+                        dialog.dismiss();
+                    }
+                });
+        // on pressing cancel button
+        alertDialog.setNegativeButton("Cancelar",
+                new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int which) {
+                        Registro.this.finish();
+                    }
+                });
+        // Showing Alert Message
+        alertDialog.show();
+    }//------------------------FIN Dialogo GPS-------------------------------------------------------------------------
+
 }

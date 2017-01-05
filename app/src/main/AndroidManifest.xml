@@ -51,10 +51,7 @@
                 <action android:name="android.intent.action.BOOT_COMPLETED" > </action>
             </intent-filter>
             <intent-filter>
-                <action android:name="android.net.conn.CONNECTIVITY_CHANGE" />
-            </intent-filter>
-            <intent-filter>
-                <action android:name="android.net.wifi.WIFI_STATE_CHANGED" />
+                <action android:name="app.nh.com.appsoinsa.BUTTON_RECEIVER" />
             </intent-filter>
         </receiver>
     </application>

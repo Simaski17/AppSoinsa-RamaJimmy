@@ -62,7 +62,7 @@ public class Login extends AppCompatActivity {
                 i.putExtra("user", txtUser.getText().toString());
                 startActivity(i);
                 finish();
-                postNewComment(getApplicationContext());
+                //postNewComment(getApplicationContext());
                 //Intent intent = new Intent(context, MainCheck.class);
                 //context.startActivity(intent);
                 //eDatos.putString("idCheckListaLectura", items.get(position).getCheckListId());
@@ -73,7 +73,7 @@ public class Login extends AppCompatActivity {
     }
 
 
-    public static void postNewComment(Context context){
+    /*public static void postNewComment(Context context){
         //mPostCommentResponse.requestStarted();
 
         RequestQueue queue = Volley.newRequestQueue(context);
@@ -136,5 +136,5 @@ public class Login extends AppCompatActivity {
         public void requestCompleted();
         public void requestEndedWithError(VolleyError error);
     }
-
+*/
 }

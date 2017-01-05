@@ -1,6 +1,8 @@
 package app.nh.com.appsoinsa;
 
+import android.content.BroadcastReceiver;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.os.Environment;
 import android.os.Handler;
 import android.support.v7.app.AppCompatActivity;
@@ -23,7 +25,7 @@ import app.nh.com.appsoinsa.cls.OutObject;
 public class SplashScreen extends AppCompatActivity {
     private static int SPLASH_TIEMPO = 3000;
     final static Handler hh = new Handler();
-
+    private BroadcastReceiver mReceiver = null;
 
     public static OutObject obj = null;
     @Override
@@ -33,6 +35,9 @@ public class SplashScreen extends AppCompatActivity {
         LayoutInflater inflater = getLayoutInflater();
         final View v = inflater.inflate(R.layout.activity_splash_screen, null);
         desSerialize();
+        Intent i = new Intent();
+        i.setAction("app.nh.com.appsoinsa.BUTTON_RECEIVER");
+        sendBroadcast(i);
     }
     /**
      * Metodo para desserializar un Json String a Objeto
@@ -91,4 +96,15 @@ public class SplashScreen extends AppCompatActivity {
             finish();
         }
     };
+
+    @Override
+    protected void onDestroy() {
+        if (mReceiver != null) {
+            unregisterReceiver(mReceiver);
+            mReceiver = null;
+        }
+        super.onDestroy();
+    }
+
+
 }
